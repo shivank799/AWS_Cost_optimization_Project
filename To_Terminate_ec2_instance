@@ -6,19 +6,22 @@ def send_notification(message):
     sns.publish(
         TopicArn='arn:aws:sns:your-region:your-account-id:ec2-actions-notification',
         Message=message,
-        Subject="AWS EBS Action Notification"
+        Subject="AWS EC2 Action Notification"
     )
 
 def lambda_handler(event, context):
-    # Describe all volumes with status "available" (not attached to any EC2 instance)
-    volumes = ec2.describe_volumes(Filters=[{'Name': 'status', 'Values': ['available']}])
+    # Get list of all EC2 instances
+    instances = ec2.describe_instances(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
     
-    for volume in volumes['Volumes']:
-        volume_id = volume['VolumeId']
-        
-        # Send notification before deleting
-        send_notification(f"EBS volume {volume_id} will be deleted as it is unused.")
-        
-        # Delete the volume
-        ec2.delete_volume(VolumeId=volume_id)
-        print(f"Deleted unused EBS volume: {volume_id}")
+    for reservation in instances['Reservations']:
+        for instance in reservation['Instances']:
+            instance_id = instance['InstanceId']
+            # Check if instance is idle (e.g., no usage for a certain period)
+            # Add your idle criteria here (e.g., instance tags, last activity time, etc.)
+            
+            # Send notification before stopping
+            send_notification(f"EC2 instance {instance_id} will be stopped due to inactivity.")
+            
+            # Stop the instance
+            ec2.stop_instances(InstanceIds=[instance_id])
+            print(f"Stopped instance: {instance_id}")
