@@ -1,0 +1,24 @@
+import boto3
+ec2 = boto3.client('ec2')
+sns = boto3.client('sns')
+
+def send_notification(message):
+    sns.publish(
+        TopicArn='arn:aws:sns:your-region:your-account-id:ec2-actions-notification',
+        Message=message,
+        Subject="AWS EBS Action Notification"
+    )
+
+def lambda_handler(event, context):
+    # Describe all volumes with status "available" (not attached to any EC2 instance)
+    volumes = ec2.describe_volumes(Filters=[{'Name': 'status', 'Values': ['available']}])
+    
+    for volume in volumes['Volumes']:
+        volume_id = volume['VolumeId']
+        
+        # Send notification before deleting
+        send_notification(f"EBS volume {volume_id} will be deleted as it is unused.")
+        
+        # Delete the volume
+        ec2.delete_volume(VolumeId=volume_id)
+        print(f"Deleted unused EBS volume: {volume_id}")
